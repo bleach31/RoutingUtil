@@ -4,6 +4,7 @@ from datetime import datetime
 from os.path import join, dirname
 from dotenv import load_dotenv
 from urllib.parse import quote
+import fastkml
 import simplekml
 import openpyxl
 
@@ -12,6 +13,7 @@ load_dotenv(dotenv_path)
 
 gmaps = googlemaps.Client(key=os.environ.get("API_KEY"))
 
+kml_path = ".mymap.kml"
 #################################
 # 住所を指定
 """ 
@@ -31,7 +33,8 @@ print(f'経度: {lng}')
 ##################################
 
 # KMLオブジェクトを作成
-kml = simplekml.Kml()
+kml_cache = fastkml.kml.KML()
+kml_save = simplekml.Kml()
 
 # Excelファイルを開く
 workbook = openpyxl.load_workbook('JIS_20240509.xlsx')
@@ -45,6 +48,15 @@ for row in sheet.iter_rows(min_row=3, min_col=10, max_col=10, values_only=True):
     if address:
         addresses.append(address)
 
+# 既存のKMLファイルから住所と座標を読み込む
+address_coords = {}
+with open(kml_path, 'rb') as kml_file:
+    kml_cache.from_string(kml_file.read())
+    for pm in list(kml_cache.features())[0].features():
+        address = pm.name.split(':')[1]
+        lat, lng = pm.geometry.y,pm.geometry.x,
+        address_coords[address] = (lat, lng)
+
 # 重複した住所の件数を数える
 address_count = {}
 for address in addresses:
@@ -55,17 +67,19 @@ for address in addresses:
 # 住所リストからプレースマークを作成
 for address, count in address_count.items():
     # プレースマークを作成
-    placemark = kml.newpoint(name=f"{count}:{address}")
+    placemark = kml_save.newpoint(name=f"{count}:{address}")
     
-    # 住所から座標を取得（ジオコーディング）
-    result = gmaps.geocode(address)
-    # 結果から緯度と経度を取得
-    lat = result[0]['geometry']['location']['lat']
-    lng = result[0]['geometry']['location']['lng']
-
+    # キャッシュから座標を取得するか、ジオコーディングを行う
+    if address in address_coords:
+        lat, lng = address_coords[address]
+    else:
+        result = gmaps.geocode(address)
+        lat = result[0]['geometry']['location']['lat']
+        lng = result[0]['geometry']['location']['lng']
+        address_coords[address] = (lat, lng)
     
     # 座標をプレースマークに設定
-    placemark.coords = [(result[0]['geometry']['location']['lng'], result[0]['geometry']['location']['lat'])]
+    placemark.coords = [(lng, lat)]
     
     # ラベルを設定
     placemark.style.iconstyle.icon.href = f'http://maps.google.com/mapfiles/kml/paddle/{count}.png'
@@ -75,4 +89,4 @@ for address, count in address_count.items():
     # placemark.style.balloonstyle.text = f'<b>{address["name"]}</b><br>{address["address"]}'
 
 # KMLファイルを保存
-kml.save(".mymap.kml")
+kml_save.save(kml_path)
