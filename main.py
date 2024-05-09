@@ -57,7 +57,7 @@ with open(kml_path, 'rb') as kml_file:
         lat, lng = pm.geometry.y,pm.geometry.x,
         address_coords[address] = (lat, lng)
 
-# 重複した住所の件数を数える
+# 重複した住所の件数を数える　:TODO str, strasse, straßeが別住所扱いになる。座標でやるべき
 address_count = {}
 for address in addresses:
     if address in address_count:
@@ -82,7 +82,10 @@ for address, count in address_count.items():
     placemark.coords = [(lng, lat)]
     
     # ラベルを設定
-    placemark.style.iconstyle.icon.href = f'http://maps.google.com/mapfiles/kml/paddle/{count}.png'
+    if count <= 10 :
+        placemark.style.iconstyle.icon.href = f'http://maps.google.com/mapfiles/kml/paddle/{count}.png'
+    else :
+        placemark.style.iconstyle.icon.href = f'https://maps.google.com/mapfiles/kml/paddle/pink-stars.png'
     placemark.style.iconstyle.scale = 1.0
     placemark.style.labelstyle.scale = 0.7
     placemark.style.labelstyle.color = simplekml.Color.black
