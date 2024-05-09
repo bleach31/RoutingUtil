@@ -5,6 +5,7 @@ from os.path import join, dirname
 from dotenv import load_dotenv
 from urllib.parse import quote
 import simplekml
+import openpyxl
 
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
@@ -32,20 +33,32 @@ print(f'経度: {lng}')
 # KMLオブジェクトを作成
 kml = simplekml.Kml()
 
-# 住所リスト
-addresses = [
-    {"address": "東京都港区芝公園４丁目２−８", "name": "東京タワー"},
-    {"address": "東京都新宿区西新宿２丁目８−１", "name": "東京都庁"},
-    {"address": "東京都墨田区押上１丁目１−２", "name": "東京スカイツリー"}
-]
+# Excelファイルを開く
+workbook = openpyxl.load_workbook('JIS_20240509.xlsx')
+sheet = workbook.active
 
+
+# 住所を取得
+addresses = []
+for row in sheet.iter_rows(min_row=3, min_col=10, max_col=10, values_only=True):
+    address = row[0]
+    if address:
+        addresses.append(address)
+
+# 重複した住所の件数を数える
+address_count = {}
+for address in addresses:
+    if address in address_count:
+        address_count[address] += 1
+    else:
+        address_count[address] = 1
 # 住所リストからプレースマークを作成
-for i, address in enumerate(addresses):
+for address, count in address_count.items():
     # プレースマークを作成
-    placemark = kml.newpoint(name=address["name"], description=address["address"])
+    placemark = kml.newpoint(name=f"{count}:{address}")
     
     # 住所から座標を取得（ジオコーディング）
-    result = gmaps.geocode(address["address"])
+    result = gmaps.geocode(address)
     # 結果から緯度と経度を取得
     lat = result[0]['geometry']['location']['lat']
     lng = result[0]['geometry']['location']['lng']
@@ -55,11 +68,11 @@ for i, address in enumerate(addresses):
     placemark.coords = [(result[0]['geometry']['location']['lng'], result[0]['geometry']['location']['lat'])]
     
     # ラベルを設定
-    placemark.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/paddle/red-circle.png'
+    placemark.style.iconstyle.icon.href = f'http://maps.google.com/mapfiles/kml/paddle/{count}.png'
     placemark.style.iconstyle.scale = 1.0
     placemark.style.labelstyle.scale = 0.7
     placemark.style.labelstyle.color = simplekml.Color.black
-    placemark.style.balloonstyle.text = f'<b>{address["name"]}</b><br>{address["address"]}'
+    # placemark.style.balloonstyle.text = f'<b>{address["name"]}</b><br>{address["address"]}'
 
 # KMLファイルを保存
 kml.save(".mymap.kml")
