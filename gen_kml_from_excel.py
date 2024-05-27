@@ -8,49 +8,36 @@ import fastkml
 import simplekml
 import openpyxl
 
+###################################################################
+# 設定セクション
+class Config:
+    xl_path = "JIS_20240509.xlsx"
+    address_col = 10 # 10はJ列に相当、4の場合D列に相当
+    kml_cache_path = ".mymap.kml" # キャッシュとしてのkmlファイル
+    kml_save_path = ".mymap.kml" # 保存されるkmlファイル
+###################################################################
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
-
 gmaps = googlemaps.Client(key=os.environ.get("API_KEY"))
-
-kml_path = ".mymap.kml"
-#################################
-# 住所を指定
-""" 
-address = '東京都港区芝公園４丁目２−８'
-# ジオコーディングを実行 :TODO try-catch必要
-result = gmaps.geocode(address)
-
-# 結果から緯度と経度を取得
-lat = result[0]['geometry']['location']['lat']
-lng = result[0]['geometry']['location']['lng']
-
-# 結果を表示
-print(f'住所: {address}')
-print(f'緯度: {lat}')
-print(f'経度: {lng}')
- """
-##################################
 
 # KMLオブジェクトを作成
 kml_cache = fastkml.kml.KML()
 kml_save = simplekml.Kml()
 
 # Excelファイルを開く
-workbook = openpyxl.load_workbook('JIS_20240509.xlsx')
+workbook = openpyxl.load_workbook(Config.xl_path)
 sheet = workbook.active
 
-
-# 住所を取得
+# Excelからのaddress_col列から住所を取得
 addresses = []
-for row in sheet.iter_rows(min_row=3, min_col=10, max_col=10, values_only=True):
+for row in sheet.iter_rows(min_row=3, min_col=Config.address_col, max_col=Config.address_col, values_only=True):
     address = row[0]
     if address:
         addresses.append(address)
 
-# 既存のKMLファイルから住所と座標を読み込む
+# 既存のKMLファイルから住所と座標を読み込む(キャッシュ用)
 address_coords = {}
-with open(kml_path, 'rb') as kml_file:
+with open(Config.kml_cache_path, 'rb') as kml_file:
     kml_cache.from_string(kml_file.read())
     for pm in list(kml_cache.features())[0].features():
         address = pm.name.split(':')[1]
@@ -64,6 +51,7 @@ for address in addresses:
         address_count[address] += 1
     else:
         address_count[address] = 1
+
 # 住所リストからプレースマークを作成
 for address, count in address_count.items():
     # プレースマークを作成
@@ -92,4 +80,4 @@ for address, count in address_count.items():
     # placemark.style.balloonstyle.text = f'<b>{address["name"]}</b><br>{address["address"]}'
 
 # KMLファイルを保存
-kml_save.save(kml_path)
+kml_save.save(Config.kml_save_path)

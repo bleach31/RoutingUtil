@@ -4,24 +4,25 @@ from os.path import join, dirname
 from dotenv import load_dotenv
 import fastkml
 from geopy.distance import geodesic
+###################################################################
+# 設定セクション
+class Config:
+    kml_path: str = ".mymap.kml" # KMLファイルパス
+    distance_threshold: int = 250 # 直線距離の閾値を設定（メートル単位）
+###################################################################
 
 # APIキーを.envファイルから読み込み
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 gmaps = googlemaps.Client(key=os.environ.get("API_KEY"))
 
-# KMLファイルパス
-kml_path = ".mymap.kml"
 
 # KMLオブジェクトを作成
 kml = fastkml.kml.KML()
 
-# 直線距離の閾値を設定（メートル単位）
-distance_threshold = 250
-
 # 既存のKMLファイルから住所と座標を読み込む
 addresses = []
-with open(kml_path, 'rb') as kml_file:
+with open(Config.kml_path, 'rb') as kml_file:
     kml.from_string(kml_file.read())
     for pm in list(kml.features())[0].features():
         address = pm.name.split(':')[1]
@@ -42,7 +43,7 @@ for address, coordinates in addresses:
     for group in grouped_addresses:
         # グループ内の住所との最大距離を計算
         max_distance = max(geodesic(coordinates, group_coordinates).meters for _, group_coordinates in group)
-        if max_distance <= distance_threshold:
+        if max_distance <= Config.distance_threshold:
             group.append((address, coordinates))
             found_group = True
             break
