@@ -3,27 +3,28 @@
 1. 指定されたExcelファイルから住所を読み込みます。
 2. Google Maps APIを使用して住所をジオコーディングし、緯度と経度を取得します。
 3. 取得した緯度・経度に基づき、重複する住所の数（＝子供の数）をカウントします。
-3. 結果に対してID（連番）を付与します
-4. 結果をエクセルファイルおよびKMLファイルに保存します。
+4.住所・緯度・経度・子供の数をエクセルファイルおよびKMLファイルに保存します。
 """
 import os
 import googlemaps
-from datetime import datetime
 from os.path import join, dirname
 from dotenv import load_dotenv
-from urllib.parse import quote
 import fastkml
 import simplekml
 import pandas as pd
+import sys
 ###################################################################
 # 設定セクション
 class Config:
-    xl_path = "JIS_20240509.xlsx"
-    address_col = 10 # 住所が記載されたエクセルの列番号、10はJ列に相当、4の場合D列に相当
+    xl_path = "Tourenplan_JIS_20240608.xlsx"
+    address_col_street = 5 # 住所（Strasse）が記載されたエクセルの列番号、6はG列に、5はF列に相当
+    address_col_city = 7     # 住所（市）が記載されたエクセルの列番号、7はH列に相当
+    address_row = 3 # 住所が記載されたエクセルの開始行番号
     kml_cache_path = ".mymap.kml" # キャッシュとしてのkmlファイル
     kml_save_path = ".mymap.kml" # 保存されるkmlファイル
-    excel_save_path = "route.xlsx" # 保存されるエクセルファイル
+    excel_save_path = "route_bus.xlsx" # 保存されるエクセルファイル
 ###################################################################
+# :TODO グーグルのMYMAPはエクセルを読み込めるので、もはやKMLいらない
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 gmaps = googlemaps.Client(key=os.environ.get("API_KEY"))
@@ -34,10 +35,11 @@ kml_save = simplekml.Kml()
 
 # Excelファイルを開く
 workbook = pd.read_excel(Config.xl_path)
-addresses = workbook.iloc[2:, Config.address_col - 1].dropna().tolist() # 住所リストを取得
+# Street列とCity列を同時にピックアップして"{street}, {city}"という文字列として結合
+addresses_raw = workbook.iloc[Config.address_row:, [Config.address_col_street, Config.address_col_city]].dropna()
+addresses = [f"{row[0]}, {row[1]}" for row in addresses_raw.values]
 
-
-# 既存のKMLファイルから住所と座標を読み込む(キャッシュ用)
+# 既存のKMLファイルから住所と座標を読み込む(キャッシュ用,API呼び出し回数削減目的)
 cached_location_data = {}
 with open(Config.kml_cache_path, 'rb') as kml_file:
     kml_cache.from_string(kml_file.read())
@@ -56,6 +58,10 @@ for address in addresses:
         lat, lng = cached_location_data[address]
     else:
         result = gmaps.geocode(address)
+        if not result:
+            raise ValueError(f"Geocode not found for address: {address}")
+            print("The program will now exit.")
+            sys.exit(1)
         lat = result[0]['geometry']['location']['lat']
         lng = result[0]['geometry']['location']['lng']
         cached_location_data[address] = (lat, lng)
