@@ -16,7 +16,7 @@ import sys
 ###################################################################
 # 設定セクション
 class Config:
-    xl_path = "Tourenplan_JIS_20240608.xlsx"
+    excel_path = "Tourenplan_JIS_20240608.xlsx"
     address_col_street = 5 # 住所（Strasse）が記載されたエクセルの列番号、6はG列に、5はF列に相当
     address_col_city = 7     # 住所（市）が記載されたエクセルの列番号、7はH列に相当
     address_row = 3 # 住所が記載されたエクセルの開始行番号
@@ -34,7 +34,7 @@ kml_cache = fastkml.kml.KML()
 kml_save = simplekml.Kml()
 
 # Excelファイルを開く
-workbook = pd.read_excel(Config.xl_path)
+workbook = pd.read_excel(Config.excel_path)
 # Street列とCity列を同時にピックアップして"{street}, {city}"という文字列として結合
 addresses_raw = workbook.iloc[Config.address_row:, [Config.address_col_street, Config.address_col_city]].dropna()
 addresses = [f"{row[0]}, {row[1]}" for row in addresses_raw.values]
@@ -82,7 +82,7 @@ df_unique = df.drop_duplicates(subset=["latitude", "longitude"])
 df_unique.insert(0, 'ID', range(1, len(df_unique) + 1))
 
 # Excelファイルに保存
-df_unique.to_excel(Config.excel_save_path, index=False, sheet_name="Location Data")
+df_unique.to_excel(Config.excel_save_path, index=False, sheet_name="LocationData")
 
 ## 以下、KMLファイル作成
 # プレースマークを作成
