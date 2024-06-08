@@ -1,13 +1,24 @@
+"""
+このプログラムは、エクセルファイルから住所と座標を読み込み、指定された直線距離の閾値に基づいて
+住所をグループ化するものです。エクセルファイルのスキーマは以下の通りです。
+
+ID      latitude    longitude   address     count
+
+設定セクションでエクセルファイルのパスと直線距離の閾値を指定します。
+.envファイルからGoogle Maps APIキーを読み込み、geopyライブラリを使用して距離計算を行います。
+グループ化された住所はコンソールに出力されます。
+"""
 import os
 import googlemaps
 from os.path import join, dirname
 from dotenv import load_dotenv
-import fastkml
+import pandas as pd
 from geopy.distance import geodesic
+
 ###################################################################
 # 設定セクション
 class Config:
-    kml_path: str = ".mymap.kml" # KMLファイルパス
+    excel_path: str = "route.xlsx" # エクセルファイルパス
     distance_threshold: int = 250 # 直線距離の閾値を設定（メートル単位）
 ###################################################################
 
@@ -16,18 +27,18 @@ dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 gmaps = googlemaps.Client(key=os.environ.get("API_KEY"))
 
+# エクセルファイルからデータを読み込み
+df = pd.read_excel(Config.excel_path)
 
-# KMLオブジェクトを作成
-kml = fastkml.kml.KML()
-
-# 既存のKMLファイルから住所と座標を読み込む
+# 住所と座標をリストに格納
 addresses = []
-with open(Config.kml_path, 'rb') as kml_file:
-    kml.from_string(kml_file.read())
-    for pm in list(kml.features())[0].features():
-        address = pm.name.split(':')[1]
-        lat, lng = pm.geometry.y,pm.geometry.x,
-        addresses.append((address,(lat, lng)))
+for index, row in df.iterrows():
+    id = row['ID']
+    address = row['address']
+    count = row['count']
+    coordinates = (row['latitude'], row['longitude'])
+    addresses.append((id, address, coordinates, count))
+
 # 重心を計算する関数
 def calculate_centroid(coordinates_list):
     lat_sum = sum(lat for _, (lat, _) in coordinates_list)
@@ -37,25 +48,33 @@ def calculate_centroid(coordinates_list):
 
 # 住所をグループ化
 grouped_addresses = []
-for address, coordinates in addresses:
+for id, address, coordinates, count in addresses:
     # 既存のグループに属するかを確認
     found_group = False
     for group in grouped_addresses:
         # グループ内の住所との最大距離を計算
-        max_distance = max(geodesic(coordinates, group_coordinates).meters for _, group_coordinates in group)
+        max_distance = max(geodesic(coordinates, group_coordinates).meters for _, _, group_coordinates, _ in group)
         if max_distance <= Config.distance_threshold:
-            group.append((address, coordinates))
+            group.append((id, address, coordinates, count))
             found_group = True
             break
     
     # 新しいグループを作成
     if not found_group:
-        grouped_addresses.append([(address, coordinates)])
+        grouped_addresses.append([(id, address, coordinates, count)])
 
 # グループ化された住所を表示
 for i, group in enumerate(grouped_addresses):
     if len(group) >= 2:
         print(f"Group {i + 1}:")
-        for address, _ in group:
-            print(f"  - {address}")
+        for id, address, _, count in group:
+            print(f"  - ID: {id}, Address: {address}, Kids_Count: {count}")
         print()
+
+
+
+
+
+
+
+
