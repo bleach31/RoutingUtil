@@ -39,13 +39,6 @@ for index, row in df.iterrows():
     coordinates = (row['latitude'], row['longitude'])
     addresses.append((id, address, coordinates, count))
 
-# 重心を計算する関数
-def calculate_centroid(coordinates_list):
-    lat_sum = sum(lat for _, (lat, _) in coordinates_list)
-    lng_sum = sum(lng for _, (_, lng) in coordinates_list)
-    count = len(coordinates_list)
-    return (lat_sum / count, lng_sum / count)
-
 # 住所をグループ化
 grouped_addresses = []
 for id, address, coordinates, count in addresses:
